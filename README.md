@@ -2,8 +2,10 @@
 
 To deploy:
 
+```
 cdk bootstrap
 cdk deploy 
+```
 
 How it works:
 - Cdk creates two containers in an ECS task, with bridge mode
@@ -11,8 +13,54 @@ How it works:
 -- app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
 -- envoy container will add iptables rule to prevent incoming traffic from any container but the app container
 - envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
+- The task is given a task role, envoy will use this to sign sigv4 against the destination
+
+How to use it:
+- Associate the new BridgeModeVPC with your lattice service network
+- Connect to the app container (within the task) either using ECS execute command or from within the docker host
+- ```curl <your lattice service>```
 
 Notes:
 - envoy is configured to use the system CA chain. If your lattice services have custom certificates, you will need to update the chain
 - Only traffic destined to the lattice service network using IPv4 is handled from the app container
 
+Example seen in the lattice access logs against a service with IAM authentication enabled:
+```
+{
+    "serviceNetworkArn": "arn:aws:vpc-lattice:ap-southeast-2:123467890123:servicenetwork/sn-0e05d75deabe9f290",
+    "resolvedUser": "arn:aws:sts::123467890123:assumed-role/BridgeModeStack-EnvoyFrontendTaskRoleA297DB4D-wtHyfwZ8q2Ih/35eccb8b16894449acad6e96287ed1d1",
+    "listenerType": "-",
+    "authDeniedReason": "-",
+    "targetGroupArn": "arn:aws:vpc-lattice:ap-southeast-2:123467890123:targetgroup/tg-0277f384abfefe8aa",
+    "sourceVpcArn": "arn:aws:ec2:ap-southeast-2:123467890123:vpc/vpc-04157e16d89eba97b",
+    "destinationVpcId": "vpc-05e207e48696b69b6",
+    "sourceIpPort": "10.0.183.56:57086",
+    "listenerId": "-",
+    "targetIpPort": "172.31.9.231:80",
+    "failureReason": "-",
+    "serviceArn": "arn:aws:vpc-lattice:ap-southeast-2:123467890123:service/svc-0cfe1f49ff3266204",
+    "sourceVpcId": "vpc-04157e16d89eba97b",
+    "startTime": "2024-08-04T11:28:40Z",
+    "requestMethod": "GET",
+    "requestPath": "/testing",
+    "protocol": "HTTP/1.1",
+    "responseCode": 404,
+    "bytesReceived": 135,
+    "bytesSent": 1247,
+    "duration": 23,
+    "userAgent": "curl/8.5.0",
+    "hostHeader": "test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws",
+    "serverNameIndication": "test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws",
+    "requestToTargetDuration": 21,
+    "responseFromTargetDuration": 0,
+    "sslCipher": "ECDHE-RSA-AES128-GCM-SHA256",
+    "tlsVersion": "TLSv1.2",
+    "callerPrincipal": "arn:aws:sts::123467890123:assumed-role/BridgeModeStack-EnvoyFrontendTaskRoleA297DB4D-wtHyfwZ8q2Ih/35eccb8b16894449acad6e96287ed1d1",
+    "callerPrincipalOrgID": "-",
+    "callerX509IssuerOU": "-",
+    "callerX509SubjectCN": "-",
+    "callerX509SANNameCN": "-",
+    "callerX509SANDNS": "-",
+    "callerX509SANURI": "-"
+}
+```
