@@ -11,9 +11,11 @@ How it works:
 - Cdk creates two containers in an ECS task, with bridge mode
 - On boot, each container will identify the other from ECS task metadata, using the iptables.sh scripts
 -- app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
--- envoy container will add iptables rule to prevent incoming traffic from any container but the app container
+-- envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
 - envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
 - The task is given a task role, envoy will use this to sign sigv4 against the destination
+- The containers are launched with NET_ADMIN capability, so they are able to access iptables
+- This model will also work with normal proxying ie HTTP_PROXY configuration, by configuring envoy:9090 as the destination and removing the iptables DNAT rules from iptables.sh
 
 How to use it:
 - Associate the new BridgeModeVPC with your lattice service network
@@ -22,7 +24,34 @@ How to use it:
 
 Notes:
 - envoy is configured to use the system CA chain. If your lattice services have custom certificates, you will need to update the chain
-- Only traffic destined to the lattice service network using IPv4 is handled from the app container
+- Only traffic destined to the lattice service network using IPv4 on tcp port 80 is transparently NATted to envoy from the app container. All other traffic proceeds as normal
+
+Example request:
+```
+curl -v test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws
+* Host test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws:80 was resolved.
+* IPv6: fd00:ec2:80::a9fe:ab41
+* IPv4: 169.254.171.65
+*   Trying 169.254.171.65:80...
+* Connected to test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws (169.254.171.65) port 80
+> GET / HTTP/1.1
+> Host: test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws
+> User-Agent: curl/8.5.0
+> Accept: */*
+>
+< HTTP/1.1 403 Forbidden
+< date: Sun, 04 Aug 2024 11:39:32 GMT
+< server: envoy
+< last-modified: Mon, 11 Jun 2007 18:53:14 GMT
+< etag: "2d-432a5e4a73a80"
+< accept-ranges: bytes
+< content-length: 45
+< content-type: text/html; charset=UTF-8
+< x-envoy-upstream-service-time: 6
+<
+<html><body><h1>It works!</h1></body></html>
+* Connection #0 to host test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws left intact
+```
 
 Example seen in the lattice access logs against a service with IAM authentication enabled:
 ```
