@@ -10,6 +10,4 @@ do
     echo $APP_IP > /tmp/appcontainer
 done
 
-
-iptables -A INPUT -s $APP_IP -j ACCEPT 
-iptables -A INPUT -j DROP
+iptables -A INPUT ! -s $APP_IP -p tcp --dport 9090 -j DROP
