@@ -14,7 +14,7 @@ How it works:
 -- envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
 - envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
 - The task is given a task role, envoy will use this to sign sigv4 against the destination
-- The containers are launched with NET_ADMIN capability, so they are able to access iptables
+- The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This is dropped after iptables execution
 - This model will also work with normal proxying ie HTTP_PROXY configuration, by configuring envoy:9090 as the destination and removing the iptables DNAT rules from iptables.sh
 
 How to use it:
@@ -25,6 +25,7 @@ How to use it:
 Notes:
 - envoy is configured to use the system CA chain. If your lattice services have custom certificates, you will need to update the chain
 - Only traffic destined to the lattice service network using IPv4 on tcp port 80 is transparently NATted to envoy from the app container. All other traffic proceeds as normal
+- The app container is an example that will launch an arbitrary command (in this case "tail -f /dev/null") when starting. 
 
 Example request:
 ```

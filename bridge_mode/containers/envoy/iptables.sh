@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Locate the 'app' container in this task 
 APP_IP=""
 while [ -z $APP_IP ]
 do
@@ -7,7 +8,7 @@ do
     if [ -z $APP_IP ]; then
         sleep 5
     fi
-    echo $APP_IP > /tmp/appcontainer
 done
 
+# Block traffic to envoy unless it comes from the app container
 iptables -A INPUT ! -s $APP_IP -p tcp --dport 9090 -j DROP
