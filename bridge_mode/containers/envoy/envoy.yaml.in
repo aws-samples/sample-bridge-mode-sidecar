@@ -1,3 +1,6 @@
+## Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+## SPDX-License-Identifier: MIT-0
+
 ## HTTP to HTTPS Proxy with sigV4 authentication
 ## Accepts inbound HTTP, then route to host identified by the Host header, using HTTPS and SigV4
 ## Example usage:
