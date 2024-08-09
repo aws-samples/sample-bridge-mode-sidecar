@@ -1,33 +1,46 @@
-# Bridge mode envoy sigv4 sidecar
+# ECS bridge mode Envoy sigv4 sidecar
 
-To deploy:
+## Purpose
+
+This aws-samples repository shows how to use the ECS Task Metadata service to locate a container sidecar when ECS Tasks are launched in bridge mode. It will then reconfigure the container to transparently forward web traffic to the sidecar, so it can be SigV4 signed. The sidecar runs Envoy http://www.envoyproxy.io proxy with aws_request_signing filter.
+The sidecar is also reconfigured in a similar way, to only permit inbound traffic to Envoy from the app container.
+
+## Installation
 
 ```
 cdk bootstrap
 cdk deploy 
 ```
 
-How it works:
-- Cdk creates two containers in an ECS task, with bridge mode
-- On boot, each container will identify the other from ECS task metadata, using the iptables.sh scripts
--- app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
--- envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
-- envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
-- The task is given a task role, envoy will use this to sign sigv4 against the destination
-- The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This is dropped after iptables execution
-- This model will also work with normal proxying ie HTTP_PROXY configuration, by configuring envoy:9090 as the destination and removing the iptables DNAT rules from iptables.sh
+## How it works
 
-How to use it:
-- Associate the new BridgeModeVPC with your lattice service network
+- CDK creates two containers in an ECS task, using bridge mode networking
+- On boot, each container will identify the other from ECS task metadata, using the iptables.sh scripts. For example:
+```
+    ENVOY_IP=$(curl -s ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.Containers[] | select (.Name=="envoy") | .Networks[0].IPv4Addresses[0]')
+```
+-- The app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
+-- The sidecar envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
+- The sidecar envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
+- The task is given a task role, and envoy will use this to sign using sigv4 against the destination. This uses the aws_request_signing extension found here: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/aws_request_signing_filter
+- The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This capability is dropped after iptables execution
+- This model will also work with normal proxying ie HTTP_PROXY configuration, by configuring <sidecar IP>:9090 as the destination and removing the iptables DNAT rules from iptables.sh
+
+## How to use it
+
+- Associate the new BridgeModeVPC with your VPC Lattice service network
 - Connect to the app container (within the task) either using ECS execute command or from within the docker host
-- ```curl <your lattice service>```
+- ```curl <your VPC Lattice service>```
 
-Notes:
-- envoy is configured to use the system CA chain. If your lattice services have custom certificates, you will need to update the chain
-- Only traffic destined to the lattice service network using IPv4 on tcp port 80 is transparently NATted to envoy from the app container. All other traffic proceeds as normal
-- The app container is an example that will launch an arbitrary command (in this case "tail -f /dev/null") when starting. 
+## Notes
 
-Example request:
+- envoy is configured to use the system CA chain. If your VPC Lattice services have custom certificates, you will need to update the chain
+- Only traffic destined to the VPC Lattice service network using IPv4 on tcp port 80 is transparently NATted to envoy from the app container. All other traffic proceeds as normal
+- The app container is an example that will launch an arbitrary command (in this case "tail -f /dev/null") when starting. Replace this with your own application launch command.
+
+## Example 
+
+An example request made from the app container to VPC Lattice:
 ```
 curl -v test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws
 * Host test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws:80 was resolved.
@@ -54,7 +67,7 @@ curl -v test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws
 * Connection #0 to host test2-0cfe1f49ff3266204.7d67968.vpc-lattice-svcs.ap-southeast-2.on.aws left intact
 ```
 
-Example seen in the lattice access logs against a service with IAM authentication enabled:
+Example seen in the VPC Lattice access logs against a service with IAM authentication enabled:
 ```
 {
     "serviceNetworkArn": "arn:aws:vpc-lattice:ap-southeast-2:123467890123:servicenetwork/sn-0e05d75deabe9f290",
@@ -72,7 +85,7 @@ Example seen in the lattice access logs against a service with IAM authenticatio
     "sourceVpcId": "vpc-04157e16d89eba97b",
     "startTime": "2024-08-04T11:28:40Z",
     "requestMethod": "GET",
-    "requestPath": "/testing",
+    "requestPath": "/",
     "protocol": "HTTP/1.1",
     "responseCode": 404,
     "bytesReceived": 135,
