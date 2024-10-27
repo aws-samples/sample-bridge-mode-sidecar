@@ -21,11 +21,11 @@ cdk deploy
 ```
     ENVOY_IP=$(curl -s ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.Containers[] | select (.Name=="envoy") | .Networks[0].IPv4Addresses[0]')
 ```
-- The app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
-- The sidecar envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
-- The sidecar envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
-- The task is given a task role, and envoy will use this to sign using sigv4 against the destination. This uses the aws_request_signing extension found here: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/aws_request_signing_filter
-- The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This capability is dropped after iptables execution
+- The app container will add DNAT iptables rules to force port 80 VPC Lattice traffic to the Envoy sidecar.
+- The sidecar Envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container.
+- The sidecar Envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
+- The task is given a task role, and Envoy will use this to sign using sigv4 against the destination. This uses the aws_request_signing extension found here: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/aws_request_signing_filter
+- The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This capability is dropped after iptables execution.
 - This model will also work with normal proxying ie HTTP_PROXY configuration, by configuring <sidecar IP>:9090 as the destination and removing the iptables DNAT rules from iptables.sh
 
 ## How to use it
@@ -36,8 +36,8 @@ cdk deploy
 
 ## Notes
 
-- envoy is configured to use the system CA chain. If your VPC Lattice services have custom certificates, you will need to update the chain
-- Only traffic destined to the VPC Lattice service network using IPv4 on tcp port 80 is transparently NATted to envoy from the app container. All other traffic proceeds as normal
+- Envoy is configured to use the system CA chain. If your VPC Lattice services have custom certificates, you will need to update the chain.
+- Only traffic destined to the VPC Lattice service network using IPv4 on tcp port 80 is transparently NATted to Envoy from the app container. All other traffic proceeds as normal.
 - The app container is an example that will launch an arbitrary command (in this case "tail -f /dev/null") when starting. Replace this with your own application launch command.
 
 ## Example 
