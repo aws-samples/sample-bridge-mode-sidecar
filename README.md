@@ -21,8 +21,8 @@ cdk deploy
 ```
     ENVOY_IP=$(curl -s ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.Containers[] | select (.Name=="envoy") | .Networks[0].IPv4Addresses[0]')
 ```
--- The app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
--- The sidecar envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
+- The app container will add DNAT iptables rules to force port 80 lattice traffic to the envoy sidecar
+- The sidecar envoy container will add iptables rule to prevent incoming proxy traffic from any container but the app container
 - The sidecar envoy container is configured to accept tcp inbound on port 9090 and connect using TLS upstream to an arbitrary host.
 - The task is given a task role, and envoy will use this to sign using sigv4 against the destination. This uses the aws_request_signing extension found here: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/aws_request_signing_filter
 - The containers are launched with CAP_NET_ADMIN capability, so they are able to access iptables. This capability is dropped after iptables execution
