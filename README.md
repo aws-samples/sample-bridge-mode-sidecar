@@ -2,8 +2,10 @@
 
 ## Purpose
 
-This aws-samples repository shows how to use the ECS Task Metadata service to locate a container sidecar when ECS Tasks are launched in bridge mode. It will then reconfigure the container to transparently forward web traffic to the sidecar, so it can be SigV4 signed. The sidecar runs Envoy http://www.envoyproxy.io proxy with aws_request_signing filter.
-The sidecar is also reconfigured in a similar way, to only permit inbound traffic to Envoy from the app container.
+This aws-samples repository shows how to use the ECS Task Metadata service to locate a container sidecar when ECS Tasks are launched in bridge mode. It will then reconfigure the container to transparently forward web traffic to the sidecar, so it can be SigV4 signed. The sidecar runs Envoy http://www.envoyproxy.io proxy with aws_request_signing filter, and is configured to intercept traffic for the 169.254.171.0/24 range.
+The sidecar is also reconfigured in a similar way, to only permit inbound traffic from the app container to Envoy.
+
+You can also use the same logic when your containers are launched in VPC mode. In VPC mode however, you are able to use the loopback (127.0.0.1) address as it is shared amongst all containers in the same task. This means you do not need additional logic to locate the sidecar, but if you intend to use transparent proxying you will still need to use iptables to redirect specific web traffic to be signed.
 
 ## Installation
 
